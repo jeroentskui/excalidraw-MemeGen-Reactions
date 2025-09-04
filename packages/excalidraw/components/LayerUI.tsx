@@ -1,26 +1,12 @@
 import clsx from "clsx";
-import React from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { MemeGeneratorToolbarButton } from "./MemeGeneratorToolbarButton";
-import { useState, useRef, useCallback } from "react";
 import { EmojiPickerPanel } from "./EmojiPickerPanel";
-import { ReactionManager, Emoji } from "./ReactionManager";
-import { ReactionBadge } from "./ReactionBadge";
+import { Emoji } from "./ReactionManager";
+// TODO: Properly type LayerUIProps, AppState, UIAppState
 import { FloatingEmoji } from "./FloatingEmoji";
-// Emoji Reaction Manager instance (singleton for now)
-const reactionManager = new ReactionManager();
 
-const EmojiReactionToolbarButton = ({ onClick, isActive }: { onClick: () => void; isActive: boolean }) => (
-  <button
-    className={"ToolIcon" + (isActive ? " ToolIcon--selected" : "")}
-    title="Emoji Reaction"
-    aria-label="Emoji Reaction"
-    type="button"
-    style={{ padding: 0, background: "none", border: "none", cursor: "pointer" }}
-    onClick={onClick}
-  >
-    <span style={{ fontSize: 20, lineHeight: 1 }}>😊</span>
-  </button>
-);
+// (Removed old top-bar EmojiReactionToolbarButton)
 import { MemeGeneratorPanel } from "./MemeGeneratorPanel";
 import { useMemeGeneratorApi } from "./useMemeGeneratorApi";
 // Handler type for meme generator
@@ -90,193 +76,112 @@ import "./Toolbar.scss";
 import type { ActionManager } from "../actions/manager";
 
 import type { Language } from "../i18n";
-import type {
-  AppProps,
-  AppState,
-  ExcalidrawProps,
-  BinaryFiles,
-  UIAppState,
-  AppClassProperties,
-} from "../types";
-
-interface LayerUIProps {
-  actionManager: ActionManager;
-  appState: UIAppState;
-  files: BinaryFiles;
-  canvas: HTMLCanvasElement;
-  setAppState: React.Component<any, AppState>["setState"];
-  elements: readonly NonDeletedExcalidrawElement[];
-  onLockToggle: () => void;
-  onHandToolToggle: () => void;
-  onPenModeToggle: AppClassProperties["togglePenMode"];
-  showExitZenModeBtn: boolean;
-  langCode: Language["code"];
-  renderTopRightUI?: ExcalidrawProps["renderTopRightUI"];
-  renderCustomStats?: ExcalidrawProps["renderCustomStats"];
-  UIOptions: AppProps["UIOptions"];
-  onExportImage: AppClassProperties["onExportImage"];
-  renderWelcomeScreen: boolean;
-  children?: React.ReactNode;
-  app: AppClassProperties;
-  isCollaborating: boolean;
-  generateLinkForSelection?: AppProps["generateLinkForSelection"];
-}
-
-const DefaultMainMenu: React.FC<{
-  UIOptions: AppProps["UIOptions"];
-}> = ({ UIOptions }) => {
-  return (
-    <MainMenu __fallback>
-      <MainMenu.DefaultItems.LoadScene />
-      <MainMenu.DefaultItems.SaveToActiveFile />
-      {/* FIXME we should to test for this inside the item itself */}
-      {UIOptions.canvasActions.export && <MainMenu.DefaultItems.Export />}
-      {/* FIXME we should to test for this inside the item itself */}
-      {UIOptions.canvasActions.saveAsImage && (
-        <MainMenu.DefaultItems.SaveAsImage />
-      )}
-      <MainMenu.DefaultItems.SearchMenu />
-      <MainMenu.DefaultItems.Help />
-      <MainMenu.DefaultItems.ClearCanvas />
-      <MainMenu.Separator />
-      <MainMenu.Group title="Excalidraw links">
-        <MainMenu.DefaultItems.Socials />
-      </MainMenu.Group>
-      <MainMenu.Separator />
-      <MainMenu.DefaultItems.ToggleTheme />
-      <MainMenu.DefaultItems.ChangeCanvasBackground />
-    </MainMenu>
-  );
-};
-
-const DefaultOverwriteConfirmDialog = () => {
-  return (
-    <OverwriteConfirmDialog __fallback>
-      <OverwriteConfirmDialog.Actions.SaveToDisk />
-      <OverwriteConfirmDialog.Actions.ExportToImage />
-    </OverwriteConfirmDialog>
-  );
-};
-
-
-const LayerUI = ({
-  actionManager,
-  appState,
-  files,
-  setAppState,
-  elements,
-  canvas,
-  onLockToggle,
-  onHandToolToggle,
-  onPenModeToggle,
-  showExitZenModeBtn,
-  renderTopRightUI,
-  renderCustomStats,
-  UIOptions,
-  onExportImage,
-  renderWelcomeScreen,
-  children,
-  app,
-  isCollaborating,
-  generateLinkForSelection,
-}: LayerUIProps) => {
-  // Emoji Reaction state
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [reactionMode, setReactionMode] = useState(false);
-  const [selectedReaction, setSelectedReaction] = useState<Emoji | null>(null);
-  const [floatingEmojis, setFloatingEmojis] = useState<{ emoji: Emoji; x: number; y: number; id: number }[]>([]);
-  const floatingId = useRef(0);
-
-  // Hold-to-spam emoji logic
-  React.useEffect(() => {
-    if (!reactionMode || !selectedReaction) return;
-    let spamInterval: any = null;
-    let isHolding = false;
-    let lastX = 0, lastY = 0;
-    const placeEmoji = (x: number, y: number) => {
-      // Add random wiggle params
-      const wiggle = {
-        angle: (Math.random() - 0.5) * 80, // -40 to +40 deg (more pronounced)
-        dx: (Math.random() - 0.5) * 32,    // -16 to +16 px (more pronounced)
-        dy: (Math.random() - 0.5) * 32,    // -16 to +16 px (more pronounced)
-      };
-      setFloatingEmojis(list => [
-        ...list,
-        { emoji: selectedReaction, x, y, id: floatingId.current++, wiggle },
-      ]);
-    };
-    const onDown = (e: MouseEvent) => {
-      if (!app?.canvas) return;
-      const rect = app.canvas.getBoundingClientRect();
-      if (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom
-      ) {
-        isHolding = true;
-        lastX = e.clientX - rect.left;
-        lastY = e.clientY - rect.top;
-        placeEmoji(lastX, lastY);
-        spamInterval = setInterval(() => {
-          placeEmoji(lastX, lastY);
-        }, 80);
-      }
-    };
-    const onUp = () => {
-      isHolding = false;
-      if (spamInterval) clearInterval(spamInterval);
-    };
-    const onMove = (e: MouseEvent) => {
-      if (!isHolding) return;
-      if (!app?.canvas) return;
-      const rect = app.canvas.getBoundingClientRect();
-      lastX = e.clientX - rect.left;
-      lastY = e.clientY - rect.top;
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("mouseleave", onUp);
-    window.addEventListener("mousemove", onMove);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("mouseleave", onUp);
-      window.removeEventListener("mousemove", onMove);
-      if (spamInterval) clearInterval(spamInterval);
-    };
-  }, [reactionMode, selectedReaction, app?.canvas]);
-
-  // Enter reaction mode after emoji selection
-  const handleEmojiSelect = useCallback((emoji: Emoji) => {
-    setShowEmojiPicker(false);
-    setSelectedReaction(emoji);
-    setReactionMode(true);
-  }, []);
-
-  // Remove floating emoji after animation
-  const handleFloatingDone = useCallback((id: number) => {
-    setFloatingEmojis(list => list.filter(e => e.id !== id));
-  }, []);
-
-  // Toggle reaction mode on/off
-  const handleReactionButton = useCallback(() => {
-    if (reactionMode) {
-      setReactionMode(false);
-      setSelectedReaction(null);
-    } else {
-      setShowEmojiPicker(true);
-    }
-  }, [reactionMode]);
-// ...existing code...
-  const device = useDevice();
+const LayerUI = (props: any) => {
+  // Tunnels and device
   const tunnels = useInitializeTunnels();
-
+  const device = useDevice();
   const TunnelsJotaiProvider = tunnels.tunnelsJotai.Provider;
 
+  // EyeDropper state
   const [eyeDropperState, setEyeDropperState] = useAtom(activeEyeDropperAtom);
 
-  // Meme Generator API and handler must be declared here, before JSX
+  // DefaultOverwriteConfirmDialog fallback
+  const DefaultOverwriteConfirmDialog = OverwriteConfirmDialog;
+  const {
+    actionManager,
+    appState,
+    files,
+    setAppState,
+    elements,
+    canvas,
+    onLockToggle,
+    onHandToolToggle,
+    onPenModeToggle,
+    showExitZenModeBtn,
+    renderTopRightUI,
+    renderCustomStats,
+    UIOptions,
+    onExportImage,
+    renderWelcomeScreen,
+    children,
+    app,
+    isCollaborating,
+    generateLinkForSelection,
+  } = props;
+
+  // State for emoji picker and floating emojis
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [floatingEmojis, setFloatingEmojis] = useState<Array<{
+    id: string;
+    emoji: Emoji;
+    x: number;
+    y: number;
+  }>>([]);
+  // reaction mode state
+  const [reactionModeActive, setReactionModeActive] = useState(false);
+  const [reactionEmoji, setReactionEmoji] = useState<Emoji | null>(null);
+  const lastSpawnRef = useRef<number>(0);
+
+  const spawnEmoji = useCallback((clientX: number, clientY: number) => {
+    if (!reactionEmoji) return;
+    setFloatingEmojis((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(36).slice(2),
+        emoji: reactionEmoji,
+        x: clientX,
+        y: clientY,
+      },
+    ]);
+  }, [reactionEmoji]);
+
+  const handleReactionModeToggle = () => {
+    setReactionModeActive((active) => {
+      if (active) {
+        setReactionEmoji(null);
+        setShowEmojiPicker(false);
+        return false;
+      }
+      if (!reactionEmoji) {
+        setShowEmojiPicker(true);
+        return false;
+      }
+      return true;
+    });
+  };
+
+  // Handler for emoji select
+  const handleEmojiSelect = (emoji: string) => {
+  try { console.debug("[reactions] emoji selected", emoji); } catch {}
+    // selecting an emoji while not in reaction mode will enable it
+    setReactionEmoji(emoji as Emoji);
+    if (!reactionModeActive) setReactionModeActive(true);
+    setShowEmojiPicker(false);
+  };
+
+  // Handler for floating emoji animation done
+  const handleFloatingDone = (id: string) => {
+    setFloatingEmojis((prev) => prev.filter(e => e.id !== id));
+  };
+
+  // Escape key exits reaction mode
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && reactionModeActive) {
+        setReactionModeActive(false);
+        setReactionEmoji(null);
+        setShowEmojiPicker(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [reactionModeActive]);
+
+  // DefaultMainMenu fallback for tunneled UI
+  // DefaultMainMenu fallback for tunneled UI
+  const DefaultMainMenu = MainMenu as any;
+
+
   const memeGeneratorApi = useMemeGeneratorApi(app);
   const handleMemeGenerate: MemeGenerateHandler = async (template, topCaption, bottomCaption) => {
     try {
@@ -518,92 +423,7 @@ const LayerUI = ({
                               onClick={() => setAppState({ openSidebar: { name: "meme-generator" } })}
                               isActive={appState.openSidebar?.name === "meme-generator"}
                             />
-    {/* Emoji Reaction Floating Button (bottom right) */}
-    <div
-      style={{
-        position: "fixed",
-        right: 24,
-        bottom: 24,
-        zIndex: 1200,
-        boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
-        borderRadius: 32,
-        background: "var(--color-surface, #fff)",
-        padding: 8,
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      <EmojiReactionToolbarButton
-        onClick={handleReactionButton}
-        isActive={reactionMode || showEmojiPicker}
-      />
-    </div>
-      {/* Emoji Picker Panel */}
-      {showEmojiPicker && (
-        <div
-          style={{
-            position: "fixed",
-            right: 24,
-            bottom: 80,
-            zIndex: 1300,
-          }}
-        >
-          <EmojiPickerPanel
-            onSelect={handleEmojiSelect}
-            onClose={() => setShowEmojiPicker(false)}
-          />
-        </div>
-      )}
-
-      {/* Overlay to block board interaction in reaction mode */}
-      {reactionMode && (
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            top: 0,
-            width: "100vw",
-            height: "100vh",
-            zIndex: 999,
-            cursor: "pointer",
-          }}
-        />
-      )}
-      {/* Render Reaction Badges on selected objects */}
-      {app.getSelectedElementIds?.()?.map(id => {
-        const el = app.getElementById?.(id);
-        if (!el) return null;
-        const reactions = reactionManager.getReactionsForElement(id);
-        if (!reactions.length) return null;
-        // Position badge at top-right of element (simple absolute, demo only)
-        const { x, y, width = 80 } = el;
-        return reactions.map((r, i) => (
-          <div
-            key={r.emoji}
-            style={{
-              position: "absolute",
-              left: x + width - 16 + i * 28,
-              top: y - 24,
-              zIndex: 100,
-            }}
-          >
-            <ReactionBadge emoji={r.emoji} count={r.count} />
-          </div>
-        ));
-      })}
-
-      {/* Floating ephemeral emojis */}
-      {floatingEmojis.map(e => (
-        <FloatingEmoji
-          key={e.id}
-          emoji={e.emoji}
-          x={e.x}
-          y={e.y}
-          onDone={() => handleFloatingDone(e.id)}
-          animate
-          wiggle={e.wiggle}
-        />
-      ))}
+                            {/* (Removed legacy reaction UI from top toolbar) */}
                           </Stack.Row>
                         </Island>
                         {isCollaborating && (
@@ -699,6 +519,41 @@ const LayerUI = ({
 
   const layerUIJSX = (
     <>
+      {/* Reaction mode overlay to capture clicks & spawn emojis (viewport coords) */}
+      {reactionModeActive && reactionEmoji && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 60, // leave footer clickable so user can exit reaction mode
+            cursor: "pointer",
+            zIndex: 900, // below floating emojis so they remain visible
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            spawnEmoji(e.clientX, e.clientY);
+            lastSpawnRef.current = performance.now();
+            const target = e.currentTarget as HTMLDivElement;
+            const move = (ev: PointerEvent) => {
+              const now = performance.now();
+              if (now - lastSpawnRef.current > 90) { // throttle ~11/sec
+                spawnEmoji(ev.clientX, ev.clientY);
+                lastSpawnRef.current = now;
+              }
+            };
+            const up = () => {
+              window.removeEventListener("pointermove", move);
+              window.removeEventListener("pointerup", up);
+              window.removeEventListener("pointercancel", up);
+            };
+            window.addEventListener("pointermove", move);
+            window.addEventListener("pointerup", up, { once: true });
+            window.addEventListener("pointercancel", up, { once: true });
+          }}
+        />
+      )}
       {/* ------------------------- tunneled UI ---------------------------- */}
       {/* make sure we render host app components first so that we can detect
           them first on initial render to optimize layout shift */}
@@ -724,7 +579,10 @@ const LayerUI = ({
       >
         {t("toolBar.library")}
       </DefaultSidebar.Trigger>
-      <DefaultOverwriteConfirmDialog />
+      <DefaultOverwriteConfirmDialog>
+        <DefaultOverwriteConfirmDialog.Actions.SaveToDisk />
+        <DefaultOverwriteConfirmDialog.Actions.ExportToImage />
+      </DefaultOverwriteConfirmDialog>
       {appState.openDialog?.name === "ttd" && <TTDDialog __fallback />}
       {/* ------------------------------------------------------------------ */}
 
@@ -852,14 +710,33 @@ const LayerUI = ({
               actionManager={actionManager}
               showExitZenModeBtn={showExitZenModeBtn}
               renderWelcomeScreen={renderWelcomeScreen}
+              onToggleReactionMode={handleReactionModeToggle}
+              reactionModeActive={reactionModeActive}
             />
+            {showEmojiPicker && !reactionModeActive && (
+              <div
+                style={{
+                  position: "fixed",
+                  right: 12,
+                  bottom: 72,
+                  zIndex: 3000,
+                  pointerEvents: "auto",
+                }}
+                data-testid="emoji-picker-wrapper"
+              >
+                <EmojiPickerPanel
+                  onSelect={handleEmojiSelect}
+                  onClose={() => setShowEmojiPicker(false)}
+                />
+              </div>
+            )}
             {appState.scrolledOutside && (
               <button
                 type="button"
                 className="scroll-back-to-content"
                 onClick={() => {
-                  setAppState((appState) => ({
-                    ...calculateScrollCenter(elements, appState),
+                  setAppState((prev: any) => ({
+                    ...calculateScrollCenter(elements, prev),
                   }));
                 }}
               >
@@ -870,6 +747,16 @@ const LayerUI = ({
           {renderSidebars()}
         </>
       )}
+      {/* Floating ephemeral emojis rendered last so they appear on top (but below overlay due to zIndex) */}
+      {floatingEmojis.map(e => (
+        <FloatingEmoji
+          key={e.id}
+          emoji={e.emoji}
+          x={e.x}
+          y={e.y}
+          onDone={() => handleFloatingDone(e.id)}
+        />
+      ))}
     </>
   );
 
@@ -884,7 +771,7 @@ const LayerUI = ({
   );
 };
 
-const stripIrrelevantAppStateProps = (appState: AppState): UIAppState => {
+const stripIrrelevantAppStateProps = (appState: any): any => {
   const {
     suggestedBindings,
     startBoundElement,
@@ -896,7 +783,7 @@ const stripIrrelevantAppStateProps = (appState: AppState): UIAppState => {
   return ret;
 };
 
-const areEqual = (prevProps: LayerUIProps, nextProps: LayerUIProps) => {
+const areEqual = (prevProps: any, nextProps: any) => {
   // short-circuit early
   if (prevProps.children !== nextProps.children) {
     return false;
@@ -909,8 +796,8 @@ const areEqual = (prevProps: LayerUIProps, nextProps: LayerUIProps) => {
     isShallowEqual(
       // asserting AppState because we're being passed the whole AppState
       // but resolve to only the UI-relevant props
-      stripIrrelevantAppStateProps(prevAppState as AppState),
-      stripIrrelevantAppStateProps(nextAppState as AppState),
+  stripIrrelevantAppStateProps(prevAppState as any),
+  stripIrrelevantAppStateProps(nextAppState as any),
       {
         selectedElementIds: isShallowEqual,
         selectedGroupIds: isShallowEqual,

@@ -4,23 +4,30 @@ import { actionShortcuts } from "../../actions";
 import { useTunnels } from "../../context/tunnels";
 import { ExitZenModeAction, UndoRedoActions, ZoomActions } from "../Actions";
 import { HelpButton } from "../HelpButton";
+import { ReactionModeButton } from "../ReactionModeButton";
 import { Section } from "../Section";
 import Stack from "../Stack";
 
 import type { ActionManager } from "../../actions/manager";
 import type { UIAppState } from "../../types";
 
+interface FooterProps {
+  appState: UIAppState;
+  actionManager: ActionManager;
+  showExitZenModeBtn: boolean;
+  renderWelcomeScreen: boolean;
+  onToggleReactionMode?: () => void;
+  reactionModeActive?: boolean;
+}
+
 const Footer = ({
   appState,
   actionManager,
   showExitZenModeBtn,
   renderWelcomeScreen,
-}: {
-  appState: UIAppState;
-  actionManager: ActionManager;
-  showExitZenModeBtn: boolean;
-  renderWelcomeScreen: boolean;
-}) => {
+  onToggleReactionMode,
+  reactionModeActive,
+}: FooterProps) => {
   const { FooterCenterTunnel, WelcomeScreenHelpHintTunnel } = useTunnels();
 
   return (
@@ -61,9 +68,15 @@ const Footer = ({
       >
         <div style={{ position: "relative" }}>
           {renderWelcomeScreen && <WelcomeScreenHelpHintTunnel.Out />}
-          <HelpButton
-            onClick={() => actionManager.executeAction(actionShortcuts)}
-          />
+          <div style={{ display: "flex", gap: 4 }}>
+            <ReactionModeButton
+              active={!!reactionModeActive}
+              onClick={onToggleReactionMode || (() => {})}
+            />
+            <HelpButton
+              onClick={() => actionManager.executeAction(actionShortcuts)}
+            />
+          </div>
         </div>
       </div>
       <ExitZenModeAction

@@ -12,6 +12,7 @@ export const EmojiPickerPanel: React.FC<{
       {EMOJIS.map((emoji) => (
         <button
           key={emoji}
+          type="button"
           className="emoji-picker-btn"
           onClick={() => onSelect(emoji)}
         >
@@ -19,6 +20,6 @@ export const EmojiPickerPanel: React.FC<{
         </button>
       ))}
     </div>
-    <button className="emoji-picker-close" onClick={onClose}>Close</button>
+    <button type="button" className="emoji-picker-close" onClick={onClose}>Close</button>
   </div>
 );

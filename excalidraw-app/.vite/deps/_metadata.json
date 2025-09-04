@@ -1,0 +1,115 @@
+{
+  "hash": "b5e88e73",
+  "configHash": "06fd9b8f",
+  "lockfileHash": "5b34561b",
+  "browserHash": "f4521661",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "f5be7a8a",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "295d804f",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "bb3795a4",
+      "needsInterop": true
+    },
+    "@sentry/browser": {
+      "src": "../../../node_modules/@sentry/browser/build/npm/esm/index.js",
+      "file": "@sentry_browser.js",
+      "fileHash": "9ece4344",
+      "needsInterop": false
+    },
+    "callsites": {
+      "src": "../../../node_modules/callsites/index.js",
+      "file": "callsites.js",
+      "fileHash": "ff4441a7",
+      "needsInterop": false
+    },
+    "clsx": {
+      "src": "../../../node_modules/clsx/dist/clsx.mjs",
+      "file": "clsx.js",
+      "fileHash": "30c85d84",
+      "needsInterop": false
+    },
+    "jotai": {
+      "src": "../../node_modules/jotai/esm/index.mjs",
+      "file": "jotai.js",
+      "fileHash": "6c925e04",
+      "needsInterop": false
+    },
+    "firebase/storage": {
+      "src": "../../../node_modules/firebase/storage/dist/esm/index.esm.js",
+      "file": "firebase_storage.js",
+      "fileHash": "3a96259f",
+      "needsInterop": false
+    },
+    "nanoid": {
+      "src": "../../../node_modules/nanoid/index.browser.js",
+      "file": "nanoid.js",
+      "fileHash": "633c8dbb",
+      "needsInterop": false
+    },
+    "lodash.throttle": {
+      "src": "../../../node_modules/lodash.throttle/index.js",
+      "file": "lodash__throttle.js",
+      "fileHash": "95b7e81b",
+      "needsInterop": true
+    },
+    "@excalidraw/random-username": {
+      "src": "../../../node_modules/@excalidraw/random-username/dist/random-username.esm.js",
+      "file": "@excalidraw_random-username.js",
+      "fileHash": "56246271",
+      "needsInterop": false
+    },
+    "socket.io-client": {
+      "src": "../../node_modules/socket.io-client/build/esm/index.js",
+      "file": "socket__io-client.js",
+      "fileHash": "c86167e5",
+      "needsInterop": false
+    },
+    "idb-keyval": {
+      "src": "../../../node_modules/idb-keyval/dist/index.js",
+      "file": "idb-keyval.js",
+      "fileHash": "443fdbf2",
+      "needsInterop": false
+    },
+    "firebase/app": {
+      "src": "../../../node_modules/firebase/app/dist/esm/index.esm.js",
+      "file": "firebase_app.js",
+      "fileHash": "ce6a6158",
+      "needsInterop": false
+    },
+    "firebase/firestore": {
+      "src": "../../../node_modules/firebase/firestore/dist/esm/index.esm.js",
+      "file": "firebase_firestore.js",
+      "fileHash": "763b39b4",
+      "needsInterop": false
+    },
+    "i18next-browser-languagedetector": {
+      "src": "../../../node_modules/i18next-browser-languagedetector/dist/esm/i18nextBrowserLanguageDetector.js",
+      "file": "i18next-browser-languagedetector.js",
+      "fileHash": "a10f4f89",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-6ILZF5JT": {
+      "file": "chunk-6ILZF5JT.js"
+    },
+    "chunk-Z2KUXOQG": {
+      "file": "chunk-Z2KUXOQG.js"
+    },
+    "chunk-ZS7NZCD4": {
+      "file": "chunk-ZS7NZCD4.js"
+    }
+  }
+}
