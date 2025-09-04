@@ -55,6 +55,25 @@
   </figure>
 </div>
 
+## Extra features in this fork
+
+This fork adds two experimental, self‑contained UI extensions on top of upstream Excalidraw:
+
+### Meme Generator Sidebar
+* Opens from a custom toolbar button (icon next to shape tools).
+* Lets you pick a meme template and enter top/bottom captions.
+* On Generate it fetches the composed image (via memegen.link) and inserts it centered on the canvas with two editable text elements overlaid (captions become normal Excalidraw text so you can restyle them).
+* Close the panel via the sidebar close control or after generation (auto‑closes).
+
+### Emoji Reaction Mode
+* Toggle via the smiley button in the footer (bottom right).
+* First click opens a minimal emoji picker; selecting an emoji enters "reaction mode".
+* While in reaction mode: clicking or press‑and‑holding on the canvas spawns ephemeral floating emojis at pointer position (holding streams them, throttled); they animate upward, wiggle and smoothly fade out (~1.8s lifetime) and do not become scene elements.
+* Canvas element interaction is suspended while active so reactions don't modify the drawing.
+* Exit by clicking the footer smiley again or pressing ESC; selecting a different emoji swaps the active reaction without exiting.
+
+These additions are illustrative examples of extending Excalidraw with custom panels, sidebars and transient interaction layers; they are not part of upstream Excalidraw.
+
 ## Features
 
 The Excalidraw editor (npm package) supports:
