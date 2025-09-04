@@ -1,5 +1,30 @@
 import clsx from "clsx";
 import React from "react";
+import { MemeGeneratorToolbarButton } from "./MemeGeneratorToolbarButton";
+import { useState, useRef, useCallback } from "react";
+import { EmojiPickerPanel } from "./EmojiPickerPanel";
+import { ReactionManager, Emoji } from "./ReactionManager";
+import { ReactionBadge } from "./ReactionBadge";
+import { FloatingEmoji } from "./FloatingEmoji";
+// Emoji Reaction Manager instance (singleton for now)
+const reactionManager = new ReactionManager();
+
+const EmojiReactionToolbarButton = ({ onClick, isActive }: { onClick: () => void; isActive: boolean }) => (
+  <button
+    className={"ToolIcon" + (isActive ? " ToolIcon--selected" : "")}
+    title="Emoji Reaction"
+    aria-label="Emoji Reaction"
+    type="button"
+    style={{ padding: 0, background: "none", border: "none", cursor: "pointer" }}
+    onClick={onClick}
+  >
+    <span style={{ fontSize: 20, lineHeight: 1 }}>😊</span>
+  </button>
+);
+import { MemeGeneratorPanel } from "./MemeGeneratorPanel";
+import { useMemeGeneratorApi } from "./useMemeGeneratorApi";
+// Handler type for meme generator
+type MemeGenerateHandler = (template: string, topCaption: string, bottomCaption: string) => Promise<void>;
 
 import {
   CLASSES,
@@ -133,6 +158,7 @@ const DefaultOverwriteConfirmDialog = () => {
   );
 };
 
+
 const LayerUI = ({
   actionManager,
   appState,
@@ -154,12 +180,187 @@ const LayerUI = ({
   isCollaborating,
   generateLinkForSelection,
 }: LayerUIProps) => {
+  // Emoji Reaction state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [reactionMode, setReactionMode] = useState(false);
+  const [selectedReaction, setSelectedReaction] = useState<Emoji | null>(null);
+  const [floatingEmojis, setFloatingEmojis] = useState<{ emoji: Emoji; x: number; y: number; id: number }[]>([]);
+  const floatingId = useRef(0);
+
+  // Hold-to-spam emoji logic
+  React.useEffect(() => {
+    if (!reactionMode || !selectedReaction) return;
+    let spamInterval: any = null;
+    let isHolding = false;
+    let lastX = 0, lastY = 0;
+    const placeEmoji = (x: number, y: number) => {
+      // Add random wiggle params
+      const wiggle = {
+        angle: (Math.random() - 0.5) * 80, // -40 to +40 deg (more pronounced)
+        dx: (Math.random() - 0.5) * 32,    // -16 to +16 px (more pronounced)
+        dy: (Math.random() - 0.5) * 32,    // -16 to +16 px (more pronounced)
+      };
+      setFloatingEmojis(list => [
+        ...list,
+        { emoji: selectedReaction, x, y, id: floatingId.current++, wiggle },
+      ]);
+    };
+    const onDown = (e: MouseEvent) => {
+      if (!app?.canvas) return;
+      const rect = app.canvas.getBoundingClientRect();
+      if (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      ) {
+        isHolding = true;
+        lastX = e.clientX - rect.left;
+        lastY = e.clientY - rect.top;
+        placeEmoji(lastX, lastY);
+        spamInterval = setInterval(() => {
+          placeEmoji(lastX, lastY);
+        }, 80);
+      }
+    };
+    const onUp = () => {
+      isHolding = false;
+      if (spamInterval) clearInterval(spamInterval);
+    };
+    const onMove = (e: MouseEvent) => {
+      if (!isHolding) return;
+      if (!app?.canvas) return;
+      const rect = app.canvas.getBoundingClientRect();
+      lastX = e.clientX - rect.left;
+      lastY = e.clientY - rect.top;
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("mouseleave", onUp);
+    window.addEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mouseleave", onUp);
+      window.removeEventListener("mousemove", onMove);
+      if (spamInterval) clearInterval(spamInterval);
+    };
+  }, [reactionMode, selectedReaction, app?.canvas]);
+
+  // Enter reaction mode after emoji selection
+  const handleEmojiSelect = useCallback((emoji: Emoji) => {
+    setShowEmojiPicker(false);
+    setSelectedReaction(emoji);
+    setReactionMode(true);
+  }, []);
+
+  // Remove floating emoji after animation
+  const handleFloatingDone = useCallback((id: number) => {
+    setFloatingEmojis(list => list.filter(e => e.id !== id));
+  }, []);
+
+  // Toggle reaction mode on/off
+  const handleReactionButton = useCallback(() => {
+    if (reactionMode) {
+      setReactionMode(false);
+      setSelectedReaction(null);
+    } else {
+      setShowEmojiPicker(true);
+    }
+  }, [reactionMode]);
+// ...existing code...
   const device = useDevice();
   const tunnels = useInitializeTunnels();
 
   const TunnelsJotaiProvider = tunnels.tunnelsJotai.Provider;
 
   const [eyeDropperState, setEyeDropperState] = useAtom(activeEyeDropperAtom);
+
+  // Meme Generator API and handler must be declared here, before JSX
+  const memeGeneratorApi = useMemeGeneratorApi(app);
+  const handleMemeGenerate: MemeGenerateHandler = async (template, topCaption, bottomCaption) => {
+    try {
+      const encode = (s: string) => encodeURIComponent(s || "_");
+      const memeUrl = `https://api.memegen.link/images/${template}/${encode(topCaption)}/${encode(bottomCaption)}.png`;
+      console.log("Fetching meme image from:", memeUrl);
+      const resp = await fetch(memeUrl);
+      if (!resp.ok) throw new Error(`Failed to fetch meme image: ${resp.status}`);
+      const blob = await resp.blob();
+      console.log("Fetched blob:", blob);
+      const file = new File([blob], `${template}.png`, { type: blob.type });
+  const centerX = app.state.width / 2;
+  const centerY = app.state.height / 2;
+  const imageElements = await app.insertImages([file], centerX, centerY);
+      console.log("Inserted image elements:", imageElements);
+      if (!imageElements?.length) {
+        alert("Failed to insert meme image into canvas.");
+        return;
+      }
+      const image = imageElements[0];
+      if (!image) {
+        alert("Image element not returned from insertImages.");
+        return;
+      }
+      const fontSize = 32;
+      const textWidth = image.width;
+      const baseText = {
+        type: "text",
+        version: 1,
+        versionNonce: Math.floor(Math.random() * 2 ** 32),
+        isDeleted: false,
+        id: Math.random().toString(36).substr(2, 9),
+        fillStyle: "solid",
+        strokeWidth: 1,
+        strokeStyle: "solid",
+        roughness: 1,
+        opacity: 100,
+        angle: 0,
+        x: image.x,
+        y: 0,
+        strokeColor: "#000000",
+        backgroundColor: "#ffffff00",
+        width: textWidth,
+        height: fontSize * 1.2,
+        seed: Math.floor(Math.random() * 2 ** 32),
+        groupIds: [],
+        frameId: null,
+        containerId: null,
+        boundElements: [],
+        fontSize,
+        fontFamily: 1,
+        textAlign: "center",
+        verticalAlign: "middle",
+        baseline: fontSize,
+        lineHeight: 1.2,
+        startBinding: null,
+        endBinding: null,
+        originalText: "",
+        autoResize: true,
+      };
+      const topText = {
+        ...baseText,
+        id: Math.random().toString(36).substr(2, 9),
+        y: image.y - image.height / 2 + fontSize,
+        text: topCaption,
+        originalText: topCaption,
+      };
+      const bottomText = {
+        ...baseText,
+        id: Math.random().toString(36).substr(2, 9),
+        y: image.y + image.height / 2 - fontSize * 1.5,
+        text: bottomCaption,
+        originalText: bottomCaption,
+      };
+      app.addElementsFromPasteOrLibrary({
+        elements: [topText, bottomText],
+        position: "center",
+      });
+      setAppState({ openSidebar: null });
+    } catch (err) {
+      console.error("Meme generation failed:", err);
+      alert("Meme generation failed: " + err);
+    }
+  };
 
   const renderJSONExportDialog = () => {
     if (!UIOptions.canvasActions.export) {
@@ -311,6 +512,98 @@ const LayerUI = ({
                               UIOptions={UIOptions}
                               app={app}
                             />
+
+                            {/* Meme Generator Button */}
+                            <MemeGeneratorToolbarButton
+                              onClick={() => setAppState({ openSidebar: { name: "meme-generator" } })}
+                              isActive={appState.openSidebar?.name === "meme-generator"}
+                            />
+    {/* Emoji Reaction Floating Button (bottom right) */}
+    <div
+      style={{
+        position: "fixed",
+        right: 24,
+        bottom: 24,
+        zIndex: 1200,
+        boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
+        borderRadius: 32,
+        background: "var(--color-surface, #fff)",
+        padding: 8,
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
+      <EmojiReactionToolbarButton
+        onClick={handleReactionButton}
+        isActive={reactionMode || showEmojiPicker}
+      />
+    </div>
+      {/* Emoji Picker Panel */}
+      {showEmojiPicker && (
+        <div
+          style={{
+            position: "fixed",
+            right: 24,
+            bottom: 80,
+            zIndex: 1300,
+          }}
+        >
+          <EmojiPickerPanel
+            onSelect={handleEmojiSelect}
+            onClose={() => setShowEmojiPicker(false)}
+          />
+        </div>
+      )}
+
+      {/* Overlay to block board interaction in reaction mode */}
+      {reactionMode && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            top: 0,
+            width: "100vw",
+            height: "100vh",
+            zIndex: 999,
+            cursor: "pointer",
+          }}
+        />
+      )}
+      {/* Render Reaction Badges on selected objects */}
+      {app.getSelectedElementIds?.()?.map(id => {
+        const el = app.getElementById?.(id);
+        if (!el) return null;
+        const reactions = reactionManager.getReactionsForElement(id);
+        if (!reactions.length) return null;
+        // Position badge at top-right of element (simple absolute, demo only)
+        const { x, y, width = 80 } = el;
+        return reactions.map((r, i) => (
+          <div
+            key={r.emoji}
+            style={{
+              position: "absolute",
+              left: x + width - 16 + i * 28,
+              top: y - 24,
+              zIndex: 100,
+            }}
+          >
+            <ReactionBadge emoji={r.emoji} count={r.count} />
+          </div>
+        ));
+      })}
+
+      {/* Floating ephemeral emojis */}
+      {floatingEmojis.map(e => (
+        <FloatingEmoji
+          key={e.id}
+          emoji={e.emoji}
+          x={e.x}
+          y={e.y}
+          onDone={() => handleFloatingDone(e.id)}
+          animate
+          wiggle={e.wiggle}
+        />
+      ))}
                           </Stack.Row>
                         </Island>
                         {isCollaborating && (
@@ -378,16 +671,27 @@ const LayerUI = ({
 
   const renderSidebars = () => {
     return (
-      <DefaultSidebar
-        __fallback
-        onDock={(docked) => {
-          trackEvent(
-            "sidebar",
-            `toggleDock (${docked ? "dock" : "undock"})`,
-            `(${device.editor.isMobile ? "mobile" : "desktop"})`,
-          );
-        }}
-      />
+      <>
+        <DefaultSidebar
+          __fallback
+          onDock={(docked) => {
+            trackEvent(
+              "sidebar",
+              `toggleDock (${docked ? "dock" : "undock"})`,
+              `(${device.editor.isMobile ? "mobile" : "desktop"})`,
+            );
+          }}
+        />
+        {/* Meme Generator Sidebar */}
+        {appState.openSidebar?.name === "meme-generator" && (
+          <div style={{ position: "fixed", right: 0, top: 0, height: "100%", zIndex: 1000 }}>
+            <MemeGeneratorPanel
+              onGenerate={handleMemeGenerate}
+              onClose={() => setAppState({ openSidebar: null })}
+            />
+          </div>
+        )}
+      </>
     );
   };
 
